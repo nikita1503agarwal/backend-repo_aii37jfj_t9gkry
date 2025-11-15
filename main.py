@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import random
 
-app = FastAPI(title="Love Animations API", version="1.1.0")
+app = FastAPI(title="Love Animations API", version="1.1.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -107,7 +107,7 @@ def animate_text(req: AnimateRequest):
         caption = "Soft apologies, hoping for a smile"
     elif contains_any(celebration_words):
         theme = "celebration"
-        palette = ["#FDE68A", "#FCA5A5", "#93C5FD", "#6EE7B7"]
+        palette = ["#FDE68A", "#FCA5A5", "#93C5FD", "6EE7B7"]
         emojis = ["🎉", "🎊", "🌈", "🌟", "💃"]
         motions = ["bounce", "spin", "pulse"]
         caption = "Good news deserves confetti"
@@ -196,6 +196,14 @@ def animate_text(req: AnimateRequest):
         overlays.append(Overlay(type="burst", items=rand_items(["💛", "🎀"], 8, (22, 34), (3.0, 5.0), ["bounce", "pulse"])) )
     else:
         overlays.append(Overlay(type="float-emoji", items=rand_items(["✨", "⭐", "🌸", "🌙"], 16, (16, 28), (4.0, 7.0), ["float", "pulse"])) )
+
+    # Ensure we always have some cute characters added
+    has_characters = any(layer.type == "characters" for layer in overlays)
+    if not has_characters:
+        overlays.append(Overlay(
+            type="characters",
+            items=rand_items(["🧸", "🐻", "🐰", "🐱", "👩‍❤️‍👨", "💑"], 5, (24, 42), (5.0, 8.0), ["float", "bounce", "pulse"])
+        ))
 
     return AnimateResponse(theme=theme, frames=frames, tags=tags, caption=caption, overlays=overlays)
 
