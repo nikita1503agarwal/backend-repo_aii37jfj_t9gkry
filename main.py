@@ -3,8 +3,9 @@ from typing import List, Literal, Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import random
 
-app = FastAPI(title="Love Animations API", version="1.0.0")
+app = FastAPI(title="Love Animations API", version="1.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,6 +24,27 @@ class AnimationFrame(BaseModel):
     text: Optional[str] = None
 
 
+class OverlayItem(BaseModel):
+    emoji: str
+    x: float  # 0..1 (percentage of width)
+    y: float  # 0..1 (percentage of height)
+    size: int  # px font size hint
+    delay: float
+    duration: float
+    motion: Literal["float", "bounce", "pulse", "spin", "slide"]
+
+
+class Overlay(BaseModel):
+    type: Literal[
+        "float-emoji",  # scattered floating emoji
+        "burst",        # small burst cluster
+        "confetti",     # celebration sprinkles
+        "petals",       # falling petals/hearts
+        "characters"    # cute character stickers
+    ]
+    items: List[OverlayItem]
+
+
 class AnimateRequest(BaseModel):
     message: str
 
@@ -32,6 +54,7 @@ class AnimateResponse(BaseModel):
     frames: List[AnimationFrame]
     tags: List[str]
     caption: str
+    overlays: List[Overlay] = []
 
 
 @app.get("/")
@@ -138,7 +161,43 @@ def animate_text(req: AnimateRequest):
     if contains_any(["help", "support", "do", "bring", "cook", "clean"]):
         tags.append("acts-of-service")
 
-    return AnimateResponse(theme=theme, frames=frames, tags=tags, caption=caption)
+    # Generate overlays for richer animations
+    overlays: List[Overlay] = []
+
+    def rand_items(emj_list: List[str], count: int, size_range=(18, 36), dur=(4.0, 8.0), motion_opts=None):
+        motion_opts = motion_opts or ["float", "pulse", "slide"]
+        items: List[OverlayItem] = []
+        for _ in range(count):
+            items.append(OverlayItem(
+                emoji=random.choice(emj_list),
+                x=round(random.random(), 3),
+                y=round(random.random(), 3),
+                size=random.randint(size_range[0], size_range[1]),
+                delay=round(random.random() * 2.0, 2),
+                duration=round(random.uniform(dur[0], dur[1]), 2),
+                motion=random.choice(motion_opts)
+            ))
+        return items
+
+    if theme == "celebration":
+        overlays.append(Overlay(type="confetti", items=rand_items(["🎉", "🎊", "✨", "🌟"], 24, (16, 28), (3.0, 6.0), ["bounce", "spin", "pulse"])) )
+        overlays.append(Overlay(type="burst", items=rand_items(["🎈", "🥳", "🌈"], 10, (22, 36), (3.0, 5.0), ["bounce", "pulse"])) )
+    elif theme == "romance":
+        overlays.append(Overlay(type="petals", items=rand_items(["💖", "💞", "💘", "🌸"], 26, (18, 34), (4.0, 9.0), ["float", "pulse"])) )
+        overlays.append(Overlay(type="characters", items=rand_items(["👩‍❤️‍👨", "🧸", "🐻", "🐱", "🪽"], 6, (24, 42), (5.0, 8.0), ["float", "bounce"])) )
+    elif theme == "missyou":
+        overlays.append(Overlay(type="float-emoji", items=rand_items(["🌙", "💫", "🕊️", "✨"], 20, (16, 28), (4.0, 8.0), ["float", "slide"])) )
+        overlays.append(Overlay(type="characters", items=rand_items(["📮", "💌", "🧭"], 5, (22, 36), (5.0, 8.0), ["float", "pulse"])) )
+    elif theme == "apology":
+        overlays.append(Overlay(type="float-emoji", items=rand_items(["🌧️", "💛", "🤍", "🫶"], 18, (18, 30), (4.0, 8.0), ["float", "pulse"])) )
+        overlays.append(Overlay(type="characters", items=rand_items(["🐼", "🐰", "🧸"], 4, (26, 40), (4.0, 7.0), ["bounce", "pulse"])) )
+    elif theme == "gratitude":
+        overlays.append(Overlay(type="float-emoji", items=rand_items(["🙏", "🌟", "😊", "✨"], 18, (16, 28), (4.0, 7.0), ["pulse", "float"])) )
+        overlays.append(Overlay(type="burst", items=rand_items(["💛", "🎀"], 8, (22, 34), (3.0, 5.0), ["bounce", "pulse"])) )
+    else:
+        overlays.append(Overlay(type="float-emoji", items=rand_items(["✨", "⭐", "🌸", "🌙"], 16, (16, 28), (4.0, 7.0), ["float", "pulse"])) )
+
+    return AnimateResponse(theme=theme, frames=frames, tags=tags, caption=caption, overlays=overlays)
 
 
 @app.get("/test")
